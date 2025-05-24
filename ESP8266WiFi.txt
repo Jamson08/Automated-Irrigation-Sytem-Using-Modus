@@ -1,0 +1,73 @@
+#include <ModbusMaster.h>
+#include <LiquidCrystal_I2C.h>
+#include <ESP8266WiFi.h>
+
+#define MAX485_DE  D1
+#define MAX485_RE  D2
+#define PUMP_PIN   D5
+
+ModbusMaster node;
+LiquidCrystal_I2C lcd(0x27, 16, 2);  // Adjust address as needed
+
+void preTransmission() {
+  digitalWrite(MAX485_RE, 1);
+  digitalWrite(MAX485_DE, 1);
+}
+
+void postTransmission() {
+  digitalWrite(MAX485_RE, 0);
+  digitalWrite(MAX485_DE, 0);
+}
+
+void setup() {
+  Serial.begin(9600);
+  pinMode(MAX485_RE, OUTPUT);
+  pinMode(MAX485_DE, OUTPUT);
+  pinMode(PUMP_PIN, OUTPUT);
+  digitalWrite(PUMP_PIN, LOW);
+
+  preTransmission();
+  postTransmission();
+
+  node.begin(1, Serial);  // Slave ID = 1
+  node.preTransmission(preTransmission);
+  node.postTransmission(postTransmission);
+
+  lcd.begin();
+  lcd.backlight();
+  lcd.setCursor(0, 0);
+  lcd.print("Irrigation Sys");
+  delay(2000);
+}
+
+void loop() {
+  uint8_t result = node.readHoldingRegisters(0x00, 3);
+
+  if (result == node.ku8MBSuccess) {
+    int sensor1 = node.getResponseBuffer(0);
+    int sensor2 = node.getResponseBuffer(1);
+    int sensor3 = node.getResponseBuffer(2);
+    
+    int avgMoisture = (sensor1 + sensor2 + sensor3) / 3;
+
+    lcd.clear();
+    lcd.setCursor(0, 0);
+    lcd.print("Moisture: ");
+    lcd.print(avgMoisture);
+
+    if (avgMoisture < 400) {  // Dry soil
+      digitalWrite(PUMP_PIN, HIGH);
+      lcd.setCursor(0, 1);
+      lcd.print("Pump: ON");
+    } else {
+      digitalWrite(PUMP_PIN, LOW);
+      lcd.setCursor(0, 1);
+      lcd.print("Pump: OFF");
+    }
+  } else {
+    lcd.clear();
+    lcd.print("Modbus error");
+  }
+
+  delay(2000);
+}
