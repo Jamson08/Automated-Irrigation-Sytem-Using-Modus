@@ -1,0 +1,22 @@
+#include <ModbusRtu.h>
+
+#define SENSOR1 A0
+#define SENSOR2 A1
+#define SENSOR3 A2
+
+Modbus slave(1, Serial, 0); // Modbus slave ID 1, using Serial
+
+uint16_t regs[3];  // 3 registers for 3 soil sensors
+
+void setup() {
+  Serial.begin(9600); // Serial for RS485 via MAX485
+  slave.begin(9600);
+}
+
+void loop() {
+  regs[0] = analogRead(SENSOR1);
+  regs[1] = analogRead(SENSOR2);
+  regs[2] = analogRead(SENSOR3);
+
+  slave.poll(regs, 3);  // Share 3 sensor values
+}
